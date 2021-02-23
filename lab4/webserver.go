@@ -44,8 +44,13 @@ func (db database) update(w http.ResponseWriter, req *http.Request) {
 func (db database) delete(w http.ResponseWriter, req *http.Request) {
 	itemToDelete := req.URL.Query().Get("item")
 
+	for item, price := range db { //this is here to show list before delete(remove before demo)
+		fmt.Fprintf(w, "%s: %s\n", item, price)
+	}
+
 	delete(db, itemToDelete)
-	for item, price := range db {
+
+	for item, price := range db { //this is here to show list after delete(remove before demo)
 		fmt.Fprintf(w, "%s: %s\n", item, price)
 	}
 }
