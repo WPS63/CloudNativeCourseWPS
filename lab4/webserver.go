@@ -1,21 +1,16 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 )
 
 func main() {
 	db := database{"shoes": 50, "socks": 5} //create an instance of type database
 	http.HandleFunc("/list", db.list)
 	http.HandleFunc("/price", db.price)
-	http.HandleFunc("/list", db.list)
-	http.HandleFunc("/price", db.price)
-	http.HandleFunc("/list", db.list)
-	http.HandleFunc("/price", db.price)
+	http.HandleFunc("/delete", db.delete)
 
 	log.Fatal(http.ListenAndServe("localhost:8000", nil))
 }
@@ -47,9 +42,10 @@ func (db database) update(w http.ResponseWriter, req *http.Request) {
 
 }
 func (db database) delete(w http.ResponseWriter, req *http.Request) {
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Enter item to delete: ")
-	text, _ := reader.ReadString('\n')
+	itemToDelete := req.URL.Query().Get("item")
 
-	delete(db, text)
+	delete(db, itemToDelete)
+	for item, price := range db {
+		fmt.Fprintf(w, "%s: %s\n", item, price)
+	}
 }
