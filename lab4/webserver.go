@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 )
 
 func main() {
@@ -11,11 +12,12 @@ func main() {
 	http.HandleFunc("/list", db.list)
 	http.HandleFunc("/price", db.price)
 	http.HandleFunc("/delete", db.delete)
-
+	http.HandleFunc("/create", db.create)
+	http.HandleFunc("/update", db.update)
 	log.Fatal(http.ListenAndServe("localhost:8000", nil))
 }
 
-type dollars float32 //declare type dollars
+type dollars float64 //declare type dollars
 
 func (d dollars) String() string { return fmt.Sprintf("$%.2f", d) } //only keep 2 decimal places of dollars
 
@@ -36,10 +38,26 @@ func (db database) price(w http.ResponseWriter, req *http.Request) {
 	}
 }
 func (db database) create(w http.ResponseWriter, req *http.Request) {
-	//add new item to
+	//add new item to database
+	item := req.URL.Query().Get("item")
+	newPrice := req.URL.Query().Get("price")
+	f, _ := strconv.ParseFloat(newPrice, 32)
+	db[item] = dollars(f)
 }
 func (db database) update(w http.ResponseWriter, req *http.Request) {
+	//change value of key
+	item := req.URL.Query().Get("item")
+	newPrice := req.URL.Query().Get("price")
+	f, _ := strconv.ParseFloat(newPrice, 32)
+	if price, ok := db[item]; ok {
+		_ = price
+		fmt.Fprint(w, "you entered\n", f)
+		db[item] = dollars(f)
 
+	} else {
+		w.WriteHeader(http.StatusNotFound) // 404
+		fmt.Fprintf(w, "no such item: %q\n", item)
+	}
 }
 func (db database) delete(w http.ResponseWriter, req *http.Request) {
 	itemToDelete := req.URL.Query().Get("item")
