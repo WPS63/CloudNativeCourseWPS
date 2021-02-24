@@ -9,23 +9,21 @@ import (
 )
 
 func main() {
-	db := database{"shoes": 50, "socks": 5} //create an instance of type database
+	db := database{"shoes": 50, "socks": 5} //create an instance of type database(a map)
 	http.HandleFunc("/list", db.list)
 	http.HandleFunc("/price", db.price)
-	http.HandleFunc("/delete", db.delete)
+	http.HandleFunc("/delete", db.delete) //added handlefunc calls for new functions
 	http.HandleFunc("/create", db.create)
 	http.HandleFunc("/update", db.update)
 	log.Fatal(http.ListenAndServe("localhost:8000", nil))
 }
 
-var mutex = &sync.RWMutex{}
-
-type dollars float64 //declare type dollars
-
+var mutex = sync.RWMutex{}       //declare mutex
+type dollars float64             //declare type dollars
 func (d dollars) String() string { return fmt.Sprintf("$%.2f", d) } //only keep 2 decimal places of dollars
+type database map[string]dollars //database is a map of items and their dollar values
 
-type database map[string]dollars //databaseis a map of items and their dollar values
-
+//curl http://localhost:8000/list
 func (db database) list(w http.ResponseWriter, req *http.Request) {
 	mutex.RLock()                 //locks for reading
 	for item, price := range db { //print items in the database
@@ -33,6 +31,8 @@ func (db database) list(w http.ResponseWriter, req *http.Request) {
 	}
 	mutex.RUnlock()
 }
+
+//curl "http://localhost:8000/price?item=socks"
 func (db database) price(w http.ResponseWriter, req *http.Request) {
 	mutex.RLock()
 	item := req.URL.Query().Get("item")
@@ -44,40 +44,65 @@ func (db database) price(w http.ResponseWriter, req *http.Request) {
 	}
 	mutex.RUnlock()
 }
-func (db database) create(w http.ResponseWriter, req *http.Request) {
-	mutex.Lock() //locks for writing
-	item := req.URL.Query().Get("item")
-	newPrice := req.URL.Query().Get("price")
-	f, _ := strconv.ParseFloat(newPrice, 32)
-	db[item] = dollars(f) //add new item to database
-	fmt.Fprint(w, "New item created: ", item, ". It's price is now set to: ", f)
-	mutex.Unlock()
-}
-func (db database) update(w http.ResponseWriter, req *http.Request) {
-	mutex.Lock()
-	//change value of key
-	item := req.URL.Query().Get("item")
-	newPrice := req.URL.Query().Get("price")
-	f, _ := strconv.ParseFloat(newPrice, 32)
-	if price, ok := db[item]; ok {
-		_ = price
-		fmt.Fprint(w, "Price of ", item, " is now set to: ", f)
-		db[item] = dollars(f)
 
-	} else {
-		w.WriteHeader(http.StatusNotFound) // 404
-		fmt.Fprintf(w, "Error: No such item: %q\n", item)
+//curl "http://localhost:8000/create?item=pants&price=20"
+func (db database) create(w http.ResponseWriter, req *http.Request) {
+	item := req.URL.Query().Get("item")
+	price := req.URL.Query().Get("price")
+	p, err := strconv.ParseFloat(price, 32) //convert to float
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Price: %v\n", err)
+		return
+	} else if p <= 0 {
+		fmt.Fprintf(w, "That price is too low. Try again.")
+		return
 	}
-	mutex.Unlock()
+	if _, found := db[item]; found {
+		fmt.Fprint(w, "That item is already in the db but I updated it's value for you.\n")
+		mutex.Lock() //locks for writing
+		db[item] = dollars(p)
+		mutex.Unlock() //locks for writing
+		fmt.Fprint(w, "Updated item: ", item, ". Item price:  ", p, " \n")
+	} else {
+		mutex.Lock() //locks for writing
+		db[item] = dollars(p)
+		mutex.Unlock() //locks for writing
+		fmt.Fprint(w, "Created item: ", item, ". Item price:  ", p, " \n")
+	}
 }
+
+//curl "http://localhost:8000/update?item=socks&price=7"
+func (db database) update(w http.ResponseWriter, req *http.Request) {
+	item := req.URL.Query().Get("item")
+	price := req.URL.Query().Get("price")
+	p, err := strconv.ParseFloat(price, 32) //convert to float
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "Price: %v\n", err)
+		return
+	}
+	if _, found := db[item]; found {
+		mutex.Lock()
+		db[item] = dollars(p) //convert float to type dollars and store in map
+		mutex.Unlock()
+		fmt.Fprint(w, "Updated item: ", item, ". Item price:  ", p, " \n")
+	} else {
+		w.WriteHeader(http.StatusNotFound) // 404: item not in database
+		fmt.Fprintf(w, "no such item: %q\n", item)
+	}
+}
+
+//curl "http://localhost:8000/delete?item=socks"
 func (db database) delete(w http.ResponseWriter, req *http.Request) {
 	mutex.Lock()
-
 	itemToDelete := req.URL.Query().Get("item")
-
-	delete(db, itemToDelete)
-
-	fmt.Fprintf(w, itemToDelete, "has been deleted")
-
+	if _, found := db[itemToDelete]; found {
+		delete(db, itemToDelete)
+		fmt.Fprintf(w, "Deleted item %s\n", itemToDelete)
+	} else {
+		w.WriteHeader(http.StatusNotFound) // 404: item not in database
+		fmt.Fprintf(w, "no such item: %q\n", itemToDelete)
+	}
 	mutex.Unlock()
 }
