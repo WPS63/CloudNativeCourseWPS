@@ -99,5 +99,5 @@ var MovieInfo_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "movieapi.proto",
+	Metadata: "movieapi/movieapi.proto",
 }
