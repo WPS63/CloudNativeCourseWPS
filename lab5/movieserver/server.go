@@ -3,12 +3,13 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"labs/lab5/movieapi"
 	"log"
 	"net"
 	"strconv"
 	"strings"
-
-	"labs/lab5/movieapi"
 
 	"google.golang.org/grpc"
 )
@@ -41,11 +42,27 @@ func (s *server) GetMovieInfo(ctx context.Context, in *movieapi.MovieRequest) (*
 		reply.Director = val[1]
 		cast := strings.Split(val[2], ",")
 		reply.Cast = append(reply.Cast, cast...)
-
 	}
-
 	return reply, nil
-
+}
+func (s *server) SetMovieInfo(ctx context.Context, message *movieapi.MovieData) (*movieapi.Status, error) {
+	title := message.GetTitle() //these functions are declared automatically in the movieapi.pb.go
+	year := message.GetYear()
+	director := message.GetDirector()
+	cast := message.GetCast()
+	status := &movieapi.Status{}     //create a new status message to be returned to the client after
+	yearS := fmt.Sprint(year)        //convert year into a string so you can add it to the string array
+	castS := strings.Join(cast, ",") //combine the strings of cast slice into one string
+	mapValue := make([]string, 0)
+	mapValue = append(mapValue, yearS, director, castS) //append movie data to the slice
+	if val, ok := moviedb[title]; !ok {
+		_ = val
+		moviedb[title] = mapValue //add slice to map
+		status.Code = "success"
+		return status, nil
+	}
+	status.Code = "failure"
+	return status, errors.New("Movie already in db")
 }
 
 func main() {
