@@ -55,8 +55,7 @@ func (s *server) SetMovieInfo(ctx context.Context, message *movieapi.MovieData) 
 	castS := strings.Join(cast, ",") //combine the strings of cast slice into one string
 	mapValue := make([]string, 0)
 	mapValue = append(mapValue, yearS, director, castS) //append movie data to the slice
-	if val, ok := moviedb[title]; !ok {
-		_ = val
+	if _, presentInDb := moviedb[title]; !presentInDb {
 		moviedb[title] = mapValue //add slice to map
 		status.Code = "success"
 		return status, nil
